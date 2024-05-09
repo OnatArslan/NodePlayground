@@ -1,7 +1,7 @@
 const fs = require("fs"); // fs module for file system
 const http = require(`http`); // for http server
 const url = require("url");
-
+const replaceTemplate = require(`./modules/replaceTemplate.js`);
 // // Reading files
 // // Syncronus vay -- BAD
 // const readThis = fs.readFileSync(`./txt/input.txt`, `utf-8`);
@@ -41,24 +41,10 @@ const tempProduct = fs.readFileSync(
 );
 const dataObjects = JSON.parse(data);
 
-const replaceTemplate = (template, product) => {
-  let output = template.replace(/{%PRODUCTNAME%}/g, product.productName);
-  output = output.replace(/{%IMAGE%}/g, product.image);
-  output = output.replace(/{%FROM%}/g, product.from);
-  output = output.replace(/{%QUANTITY%}/g, product.quantity);
-  output = output.replace(/{%PRICE%}/g, product.price);
-  output = output.replace(/{%DESCRIPTION%}/g, product.description);
-  output = output.replace(/{%ID%}/g, product.id);
-  if (!product.organic) {
-    output = output.replace(/{%NOT_ORGANIC%}/g, `not-organic`);
-  }
-  return output;
-};
-
 // SERVER ____________----------------------______________________
 const server = http.createServer((request, response) => {
-  console.log(request.url);
-  const pathName = request.url;
+  const myUrl = new URL(`http://127.0.0.1:8000${request.url}`);
+  const { searchParams, pathname: pathName } = myUrl;
   //   Overview page
   if (pathName === `/` || pathName === `/overview`) {
     const cardsHtml = dataObjects.map((el) => {
@@ -70,7 +56,12 @@ const server = http.createServer((request, response) => {
 
     // products page
   } else if (pathName === `/product`) {
-    response.end(`This is the products page`);
+    console.log(typeof searchParams.get(`id`));
+    const product = dataObjects.find((el) => {
+      return el.id === Number(searchParams.get(`id`));
+    });
+    const output = replaceTemplate(tempProduct, product);
+    response.end(output);
     // api
   } else if (pathName === `/api`) {
     response.end(data);
@@ -85,3 +76,5 @@ const server = http.createServer((request, response) => {
 server.listen(8000, `127.0.0.1`, () => {
   console.log(`Server has been starting and listening to request on port 8000`);
 });
+
+// Introduction to npm
