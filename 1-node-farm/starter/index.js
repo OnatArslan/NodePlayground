@@ -1,7 +1,9 @@
 const fs = require("fs"); // fs module for file system
 const http = require(`http`); // for http server
-const url = require("url");
+const url = require("url"); // for url
+const slugify = require(`slugify`); // for string changes
 const replaceTemplate = require(`./modules/replaceTemplate.js`);
+
 // // Reading files
 // // Syncronus vay -- BAD
 // const readThis = fs.readFileSync(`./txt/input.txt`, `utf-8`);
@@ -41,6 +43,13 @@ const tempProduct = fs.readFileSync(
 );
 const dataObjects = JSON.parse(data);
 
+// How work slugify
+const slugs = dataObjects.map((el) => {
+  return slugify(el.productName, { lower: true });
+});
+console.log(slugs);
+console.log(slugify(`Fresh Avocados`, { lower: true })); //(string, {option1:chose})
+
 // SERVER ____________----------------------______________________
 const server = http.createServer((request, response) => {
   const myUrl = new URL(`http://127.0.0.1:8000${request.url}`);
@@ -51,12 +60,10 @@ const server = http.createServer((request, response) => {
       return replaceTemplate(tempCard, el);
     });
     const output = tempOverview.replace(`{%PRODUCTS_CARDS%}`, cardsHtml);
-    console.log(cardsHtml);
     response.end(output);
 
     // products page
   } else if (pathName === `/product`) {
-    console.log(typeof searchParams.get(`id`));
     const product = dataObjects.find((el) => {
       return el.id === Number(searchParams.get(`id`));
     });
