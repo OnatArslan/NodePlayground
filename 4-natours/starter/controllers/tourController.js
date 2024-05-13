@@ -4,29 +4,34 @@ exports.getAllTours = async (req, res) => {
   // find() method without parameter(filter, projection, options) return all Tours
   // Tour.find(filter, projection, options)
   try {
-    // FIRST WE BUILD THE QUERY
-    // declera query object copy
-    const queryObj = { ...req.query };
-    // give which queries not included in queryObj
-    const excludedFields = [`page`, `sort`, `limit`, `fields`];
-    // delete excluded fields in queryObj
-    excludedFields.forEach((el) => {
-      delete queryObj[el];
+    // get copy of req.query
+    // 1) Filtering
+    queryObj = { ...req.query };
+    console.log(req.query);
+    // define special queries
+    specialQueries = [`page`, `sort`, `limit`, `fields`];
+    // remove special queries in queryObj if there
+    specialQueries.forEach((element) => {
+      delete queryObj[element];
     });
-    console.log(req.query, queryObj);
-    // FIRST WAY OF WRITING QUERY WITH MONGODB QUERIES
-    // And filter tours by new(excluded fieldslardan arinmis) queryObj
 
-    const query = Tour.find(queryObj);
+    // define query like this because Tour.find() function return a query (this is not await)
+    // we can't declare tours here with await because we may need pagination or sorting and we use that functions on query object
+    // End of process we define tours = await query
+    // 2) Advanced filtering ----------
+    let queryString = JSON.stringify(queryObj);
+    queryString = queryString.replace(
+      /\b(gte|gt|lte|lt)\b/g,
+      (match) => `$${match}`
+    );
+    console.log(JSON.parse(queryString));
+    // How does the filter object look like { difficulty:`easy`, duration:{ $gte: 5} }
+    // { duration: { gte: '5' } }
+    // gte, gt, lte, lt
+    const query = Tour.find(JSON.parse(queryString));
 
-    // SECOND WAY OF WRITING QUERIES WITH MONGOOSE METHOD CHANING
-    // const query =  Tour.find()
-    //   .where(`duration`)
-    //   .equals(5)
-    //   .where(`difficulty`)
-    //   .equals(`easy`);
+    // End of process
 
-    // EXECUTE THE QUERY
     const tours = await query;
 
     // SEND RESPONSE
