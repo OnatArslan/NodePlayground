@@ -1,36 +1,35 @@
 const Tour = require(`./../models/tourModel`);
 
-// We export it to tourRoutes and check if id legit or not
-// exports.checkId = (req, res, next, val) => {
-//   console.log(`Tour id is ${val}`);
-//   if (Number(req.params.id) >= tours.length) {
-//     return res.status(404).json({
-//       status: `fail`,
-//       message: `Invalid ID`,
-//     });
-//   }
-//   next();
-// };
-
-// Create a checkBody middleware function
-// Check if body contains the name and price property
-// If not, send 400 (bad request) response
-// Add it to the post handler stack
-// exports.checkBody = (req, res, next) => {
-//   if (!req.body.name || !req.body.price) {
-//     return res.status(400).json({
-//       status: `fail`,
-//       message: `Body or price is null`,
-//     });
-//   }
-//   next();
-// };
-
 exports.getAllTours = async (req, res) => {
   // find() method without parameter(filter, projection, options) return all Tours
   // Tour.find(filter, projection, options)
   try {
-    const tours = await Tour.find();
+    // FIRST WE BUILD THE QUERY
+    // declera query object copy
+    const queryObj = { ...req.query };
+    // give which queries not included in queryObj
+    const excludedFields = [`page`, `sort`, `limit`, `fields`];
+    // delete excluded fields in queryObj
+    excludedFields.forEach((el) => {
+      delete queryObj[el];
+    });
+    console.log(req.query, queryObj);
+    // FIRST WAY OF WRITING QUERY WITH MONGODB QUERIES
+    // And filter tours by new(excluded fieldslardan arinmis) queryObj
+
+    const query = Tour.find(queryObj);
+
+    // SECOND WAY OF WRITING QUERIES WITH MONGOOSE METHOD CHANING
+    // const query =  Tour.find()
+    //   .where(`duration`)
+    //   .equals(5)
+    //   .where(`difficulty`)
+    //   .equals(`easy`);
+
+    // EXECUTE THE QUERY
+    const tours = await query;
+
+    // SEND RESPONSE
     res.status(200).json({
       status: `success`,
       data: {
