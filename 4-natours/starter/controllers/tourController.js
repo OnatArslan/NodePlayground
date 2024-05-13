@@ -5,7 +5,7 @@ exports.getAllTours = async (req, res) => {
   // Tour.find(filter, projection, options)
   try {
     // get copy of req.query
-    // 1) Filtering
+    // 1-A) FILTERING --------------------------------
     queryObj = { ...req.query };
     console.log(req.query);
     // define special queries
@@ -18,7 +18,7 @@ exports.getAllTours = async (req, res) => {
     // define query like this because Tour.find() function return a query (this is not await)
     // we can't declare tours here with await because we may need pagination or sorting and we use that functions on query object
     // End of process we define tours = await query
-    // 2) Advanced filtering ----------
+    // 1-B) ADVANCED FILTERING --------------------------------
     let queryString = JSON.stringify(queryObj);
     queryString = queryString.replace(
       /\b(gte|gt|lte|lt)\b/g,
@@ -28,7 +28,18 @@ exports.getAllTours = async (req, res) => {
     // How does the filter object look like { difficulty:`easy`, duration:{ $gte: 5} }
     // { duration: { gte: '5' } }
     // gte, gt, lte, lt
-    const query = Tour.find(JSON.parse(queryString));
+    let query = Tour.find(JSON.parse(queryString));
+
+    // 3 SORTING --------------------
+    if (req.query.sort) {
+      // sort() method work like this sort(`Sortby1` `Sortyby2`) but req.url is sort=Sortby1,Sortby2
+      // because of that split(`,`) and then join(` `) make confortable with mongoDB syntax
+      const sortBy = req.query.sort.split(`,`).join(` `); // we join with ` ` because mongodb will accept like that
+      console.log(sortBy); // -> difficulty price this is legit syntax for mongoDb sort
+      query = query.sort(sortBy);
+    } else {
+      query = query.sort('-createdAt');
+    }
 
     // End of process
 
