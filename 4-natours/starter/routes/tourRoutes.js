@@ -10,10 +10,23 @@ const router = express.Router();
 // router.param(`id`, tourController);
 
 // new router on a route
+// get all tours and create new tour routes
 router
   .route(`/`) // because of tourRaouter use (`/api/v1/tours`) we only need / and /:id routes
   .get(tourController.getAllTours)
   .post(tourController.createTour); // we add 2 middleware
+
+// Get tours stats
+router.route(`/tour-stats`).get(tourController.getTourStats);
+
+router.route(`/monthly-plan/:year`).get(tourController.getMonthlyPlan);
+
+// get 5 most popular tours route
+router
+  .route(`/top-5-tours`)
+  .get(tourController.aliasTopTours, tourController.getAllTours);
+
+// id based routes
 router
   .route(`/:id`)
   .get(tourController.getOneTour)

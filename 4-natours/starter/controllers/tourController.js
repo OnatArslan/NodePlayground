@@ -1,53 +1,27 @@
 const Tour = require(`./../models/tourModel`);
+const APIFeatures = require(`./../utils/apiFeatures`);
+
+exports.aliasTopTours = (req, res, next) => {
+  req.query.limit = `5`;
+  req.query.sort = `-ratingsAvarage,price`;
+  req.query.fields = `name,price,ratingsAvarage,summary,difficulty`;
+  next();
+};
 
 exports.getAllTours = async (req, res) => {
-  // find() method without parameter(filter, projection, options) return all Tours
-  // Tour.find(filter, projection, options)
   try {
-    // get copy of req.query
-    // 1-A) FILTERING --------------------------------
-    queryObj = { ...req.query };
-    console.log(req.query);
-    // define special queries
-    specialQueries = [`page`, `sort`, `limit`, `fields`];
-    // remove special queries in queryObj if there
-    specialQueries.forEach((element) => {
-      delete queryObj[element];
-    });
-
-    // define query like this because Tour.find() function return a query (this is not await)
-    // we can't declare tours here with await because we may need pagination or sorting and we use that functions on query object
-    // End of process we define tours = await query
-    // 1-B) ADVANCED FILTERING --------------------------------
-    let queryString = JSON.stringify(queryObj);
-    queryString = queryString.replace(
-      /\b(gte|gt|lte|lt)\b/g,
-      (match) => `$${match}`
-    );
-    console.log(JSON.parse(queryString));
-    // How does the filter object look like { difficulty:`easy`, duration:{ $gte: 5} }
-    // { duration: { gte: '5' } }
-    // gte, gt, lte, lt
-    let query = Tour.find(JSON.parse(queryString));
-
-    // 3 SORTING --------------------
-    if (req.query.sort) {
-      // sort() method work like this sort(`Sortby1` `Sortyby2`) but req.url is sort=Sortby1,Sortby2
-      // because of that split(`,`) and then join(` `) make confortable with mongoDB syntax
-      const sortBy = req.query.sort.split(`,`).join(` `); // we join with ` ` because mongodb will accept like that
-      console.log(sortBy); // -> difficulty price this is legit syntax for mongoDb sort
-      query = query.sort(sortBy);
-    } else {
-      query = query.sort('-createdAt');
-    }
-
-    // End of process
-
-    const tours = await query;
+    // All the and we assign query to data object and response.Bunu yapma sebebimiz once tum isleri query uzerinde yapip en son data halini response donmemiz
+    const features = new APIFeatures(Tour.find(), req.query)
+      .filter()
+      .sort()
+      .limitFields()
+      .paginate();
+    const tours = await features.query;
 
     // SEND RESPONSE
     res.status(200).json({
       status: `success`,
+      count: tours.length,
       data: {
         tours: tours,
       },
@@ -151,6 +125,113 @@ exports.deleteTour = async (req, res) => {
     res.status(404).json({
       status: `failed`,
       message: err,
+    });
+  }
+};
+
+// AGGREGATION PIPELINE
+// This function is used to get statistics about tours.
+// It uses MongoDB's aggregation framework to perform complex data processing tasks.
+exports.getTourStats = async (req, res) => {
+  try {
+    // The aggregate function is used on the Tour model to perform operations on the data.
+    const stats = await Tour.aggregate([
+      {
+        // The $match stage is used to filter the documents.
+        // Only the documents that match the specified condition(s) are passed to the next pipeline stage.
+        // In this case, it's filtering tours that have an average rating of 4.5 or higher.
+        $match: { ratingsAvarage: { $gte: 4.5 } },
+      },
+      {
+        // The $group stage is used to group input documents by the specified _id expression.
+        // For each distinct grouping, it outputs a document.
+        // The _id field of each output document contains the unique group by value.
+        // In this case, it's grouping all the tours by difficulty.
+        $group: {
+          _id: { $toUpper: `$difficulty` },
+
+          // The $sum operator is used to total the number of documents (tours) in each group.
+          numTours: { $sum: 1 },
+
+          // The $sum operator is also used to add up the values of `ratingsQuantity` field in each group.
+          numRatings: { $sum: `$ratingsQuantity` },
+
+          // The $avg operator is used to calculate the average `ratingsAvarage` field in each group.
+          avgRating: { $avg: `$ratingsAvarage` },
+
+          // The $avg operator is used to calculate the average `price` field in each group.
+          avgPrice: { $avg: `$price` },
+
+          // The $min operator is used to get the minimum `price` field in each group.
+          minPrice: { $min: `$price` },
+
+          // The $max operator is used to get the maximum `price` field in each group.
+          maxPrice: { $max: `$price` },
+        },
+      },
+      {
+        // The $sort stage is used to sort the documents.
+        // In this case, it's sorting the documents by average price in ascending order.
+        $sort: { avgPrice: 1 },
+      },
+      {
+        // The $match stage is used again to filter the documents.
+        // In this case, it's filtering out the tours that have a difficulty of 'EASY'.
+        $match: { _id: { $ne: `EASY` } },
+      },
+    ]);
+    // Send a response with a status of 200 (OK) and a JSON body containing the status and the calculated stats.
+
+    res.status(200).json({
+      status: `success`,
+      data: {
+        stats: stats,
+      },
+    });
+  } catch (err) {
+    // If there's an error, send a response with a status of 404 (Not Found) and a JSON body containing the status and the error message.
+    res.status(404).json({
+      status: `fail`,
+      message: err,
+    });
+  }
+};
+
+exports.getMonthlyPlan = async (req, res) => {
+  try {
+    const year = Number(req.params.year);
+
+    const plan = await Tour.aggregate([
+      {
+        // Toplamda 9 turumuz var ve her biri yilda 3 kere yapiliyor $unwind oper. yaptigi her bir date icin turu tekrar atmak yani artik 27 tane datamiz oldu
+        $unwind: `$startDates`, // after this we have 3 Forest Hiker (actually 1 tour for each data)
+      },
+      {
+        $match: {
+          startDates: {
+            $gte: new Date(`${year}-01-01`),
+            $lte: new Date(`${year}-12-31`),
+          },
+        },
+      },
+      {
+        $group: {
+          _id: { $month: `$startDates` },
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    res.status(200).json({
+      status: `success`,
+      data: {
+        plan: plan,
+      },
+    });
+  } catch (err) {
+    res.status(404).json({
+      status: `failed`,
+      message: `err`,
     });
   }
 };
