@@ -199,14 +199,21 @@ exports.getTourStats = async (req, res) => {
 
 exports.getMonthlyPlan = async (req, res) => {
   try {
+    // Convert the year parameter to a number
     const year = Number(req.params.year);
 
+    // Use the aggregate function on the Tour model to perform operations on the data
     const plan = await Tour.aggregate([
       {
-        // Toplamda 9 turumuz var ve her biri yilda 3 kere yapiliyor $unwind oper. yaptigi her bir date icin turu tekrar atmak yani artik 27 tane datamiz oldu
-        $unwind: `$startDates`, // after this we have 3 Forest Hiker (actually 1 tour for each data)
+        // The $unwind stage is used to deconstruct an array field from the input documents
+        // to output a document for each element. Each output document replaces the array
+        // with an element value. In this case, it's deconstructing the startDates array.
+        $unwind: `$startDates`,
       },
       {
+        // The $match stage is used to filter the documents.
+        // Only the documents that match the specified condition(s) are passed to the next pipeline stage.
+        // In this case, it's filtering tours that start within the specified year.
         $match: {
           startDates: {
             $gte: new Date(`${year}-01-01`),
@@ -215,13 +222,45 @@ exports.getMonthlyPlan = async (req, res) => {
         },
       },
       {
+        // The $group stage is used to group input documents by the specified _id expression.
+        // For each distinct grouping, it outputs a document.
+        // The _id field of each output document contains the unique group by value.
+        // In this case, it's grouping all the tours by the month of their start dates.
         $group: {
           _id: { $month: `$startDates` },
-          count: { $sum: 1 },
+
+          // The $sum operator is used to total the number of documents (tours) in each group.
+          numTourStarts: { $sum: 1 },
+
+          // The $push operator is used to append the tour names to an array in each group.
+          tours: { $push: `$name` },
         },
+      },
+      {
+        // The $addFields stage is used to add new fields to the documents.
+        // In this case, it's adding a new field called 'month' with the value of _id (which is the month of the start dates).
+        $addFields: { month: `$_id` },
+      },
+      {
+        // The $project stage is used to include, exclude, or rename fields.
+        // In this case, it's excluding the _id field from the output documents.
+        $project: {
+          _id: 0,
+        },
+      },
+      {
+        // The $sort stage is used to sort the documents.
+        // In this case, it's sorting the documents by numTourStarts in descending order.
+        $sort: { numTourStarts: -1 },
+      },
+      {
+        // The $limit stage is used to limit the number of documents passed to the next stage.
+        // In this case, it's limiting the output to 12 documents.
+        $limit: 12,
       },
     ]);
 
+    // Send a response with a status of 200 (OK) and a JSON body containing the status and the calculated plan.
     res.status(200).json({
       status: `success`,
       data: {
@@ -229,6 +268,7 @@ exports.getMonthlyPlan = async (req, res) => {
       },
     });
   } catch (err) {
+    // If there's an error, send a response with a status of 404 (Not Found) and a JSON body containing the status and the error message.
     res.status(404).json({
       status: `failed`,
       message: `err`,
