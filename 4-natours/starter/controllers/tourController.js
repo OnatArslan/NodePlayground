@@ -174,11 +174,11 @@ exports.getTourStats = async (req, res) => {
         // In this case, it's sorting the documents by average price in ascending order.
         $sort: { avgPrice: 1 },
       },
-      {
-        // The $match stage is used again to filter the documents.
-        // In this case, it's filtering out the tours that have a difficulty of 'EASY'.
-        $match: { _id: { $ne: `EASY` } },
-      },
+      // {
+      // The $match stage is used again to filter the documents.
+      // In this case, it's filtering out the tours that have a difficulty of 'EASY'.
+      // $match: { _id: { $ne: `EASY` } },
+      // },
     ]);
     // Send a response with a status of 200 (OK) and a JSON body containing the status and the calculated stats.
 

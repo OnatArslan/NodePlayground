@@ -8,6 +8,8 @@ const toursSchema = new mongoose.Schema(
       required: [true, `a Tour must have a name`], // this is a validator
       unique: true,
       trim: true,
+      maxlenght: [40, `A tour name must have less than 40 characters`],
+      minlenght: [10, `A tour name must have more than 10 characters`],
     },
     slug: {
       type: String,
@@ -80,7 +82,7 @@ toursSchema.virtual(`durationWeeks`).get(function () {
   return this.duration / 7;
 });
 
-// DOCUMENT MIDDLEWARE: RUNS BEFORE .save() and .crate() COMMAND not insertMany()
+// DOCUMENT MIDDLEWARE: RUNS BEFORE .save() and .crate() COMMAND not insertMany()-------------------------------------
 toursSchema.pre(`save`, function (next) {
   // console.log(this); // this means currently proceded document
   this.slug = slugify(this.name, { lower: true });
@@ -94,9 +96,10 @@ toursSchema.pre(`save`, function (next) {
 // next();
 // });
 
-// QUERY MIDDLEWARE PRE
+// QUERY MIDDLEWARE PRE -----------------------------------
 // toursSchema.pre(`find`, function (next) {
 toursSchema.pre(/^find/, function (next) {
+  // console.log(this);  this keyword refer to query Object
   this.find({ secretTour: { $ne: true } });
   this.start = Date.now();
   next();
@@ -104,7 +107,18 @@ toursSchema.pre(/^find/, function (next) {
 
 // post Middleware's have accest to document because its is working right after document is processed
 toursSchema.post(/^find/, function (docs, next) {
+  // console.log(this);  this keyword refer to query Object
   console.log(`Query took ${Date.now() - this.start} miliseconds`);
+  next();
+});
+
+// AGGREGATION MIDDLEWARE FOR BEFORE AGGREGATION IS START pre() -----------------------------------
+toursSchema.pre(`aggregate`, function (next) {
+  // console.log(this);  this refer to aggregate object
+  this.pipeline().unshift({ $match: { secretTour: { $ne: true } } });
+
+  console.log(this.pipeline());
+
   next();
 });
 
