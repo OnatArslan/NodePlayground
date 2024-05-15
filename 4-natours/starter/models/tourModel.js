@@ -1,5 +1,7 @@
+// const mongoose = require('mongoose');
 const mongoose = require('mongoose');
 const slugify = require('slugify');
+const validator = require('validator'); // this is a npm packace you must read the docs at npm site
 
 const toursSchema = new mongoose.Schema(
   {
@@ -10,6 +12,14 @@ const toursSchema = new mongoose.Schema(
       trim: true,
       maxLength: [40, `A tour name must have less than 40 characters`],
       minLength: [10, `A tour name must have more than 10 characters`],
+
+      // custom validator created and validator npm package is used
+      // validate: {
+      //   validator: function (val) {
+      //     return validator.isAlpha(val.replace(` `, ``));  =======> I remove it because isAlpha won't permit whitespace between words, do not use it :)))
+      //   },
+      //   message: `A tour name must contain only alpha characters`,
+      // },
     },
     slug: {
       type: String,
@@ -27,7 +37,7 @@ const toursSchema = new mongoose.Schema(
       required: [true, `A tour must have a difficulty`],
       enum: {
         values: [`easy`, `medium`, `difficult`],
-        message: `{VALUE} is not supported`,
+        message: `Difficulty is either: easy, medium or difficult, {VALUE} is not supported`,
       },
     },
     ratingsAvarage: {
@@ -46,6 +56,14 @@ const toursSchema = new mongoose.Schema(
     },
     priceDiscount: {
       type: Number,
+      validate: {
+        validator: function (val) {
+          // This is only points to current doc on NEW document, for update() this keyword not work
+          return val < this.price; // price discount must be lower than price
+        },
+        // message: `{VALUE} must be lower than tours price`, {VALUE} is given value and mongoDB onu taniyor :)
+        message: `Discount must be lower than tour's price`,
+      },
     },
     summary: {
       type: String,
