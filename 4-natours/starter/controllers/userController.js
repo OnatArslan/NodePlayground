@@ -1,18 +1,33 @@
+const User = require('./../models/userModel');
+
 exports.getAllUsers = (req, res) => {
-  res
-    .status(500)
-    .json({ status: `err`, message: `This route is not yet defined` });
+  try {
+    const users = User.find();
+    res.status(200).json({
+      status: `success`,
+      data: {
+        users: users,
+      },
+    });
+  } catch (err) {
+    res.status(404).json({
+      status: `fail`,
+      message: err,
+    });
+  }
 };
 
-exports.getOneUser = (req, res) => {
-  res
-    .status(500)
-    .json({ status: `err`, message: `This route is not yet defined` });
+exports.getOneUser = async (req, res) => {
+  res.status(500).json({
+    status: `fail`,
+    message: `This route is not working`,
+  });
 };
-exports.createUser = (req, res) => {
-  res
-    .status(500)
-    .json({ status: `err`, message: `This route is not yet defined` });
+exports.createUser = async (req, res) => {
+  res.status(500).json({
+    status: `fail`,
+    message: err,
+  });
 };
 
 exports.updateUser = (req, res) => {

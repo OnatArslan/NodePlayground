@@ -1,5 +1,6 @@
 const express = require('express');
 const userController = require(`./../controllers/userController`);
+const authController = require(`./../controllers/authController`);
 // Users route handlers
 
 // User routes
@@ -11,6 +12,11 @@ const router = express.Router();
 // });
 
 // because of usersRaouter use (`/api/v1/userss`) we only need / and /:id routes
+
+// These are user routes for signup signin
+router.post(`/signup`, authController.signup);
+router.post(`/login`, authController.login);
+// These are admin routes
 router
   .route(`/`)
   .get(userController.getAllUsers)
