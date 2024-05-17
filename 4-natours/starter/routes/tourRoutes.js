@@ -1,5 +1,6 @@
 const express = require('express');
 const tourController = require(`./../controllers/tourController`);
+const authController = require(`./../controllers/authController.js`);
 const fs = require('fs');
 
 const router = express.Router();
@@ -13,7 +14,7 @@ const router = express.Router();
 // get all tours and create new tour routes
 router
   .route(`/`) // because of tourRaouter use (`/api/v1/tours`) we only need / and /:id routes
-  .get(tourController.getAllTours)
+  .get(authController.protect, tourController.getAllTours)
   .post(tourController.createTour); // we add 2 middleware
 
 // Get tours stats

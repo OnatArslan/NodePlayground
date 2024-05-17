@@ -39,6 +39,9 @@ const userSchema = new mongoose.Schema({
       message: `Passwords are not the same`, // Custom error message for non-matching passwords
     },
   },
+  passwordChangedAt: {
+    type: Date,
+  },
 });
 
 // Pre-save middleware to hash the password before saving the user document
@@ -56,11 +59,31 @@ userSchema.pre(`save`, async function (next) {
 });
 
 // INSTANCE METHOD
+// Adding a method to the userSchema methods object
 userSchema.methods.correctPassword = async function (
-  candidatePassword,
-  userPassword
+  candidatePassword, // The password entered by the user
+  userPassword // The hashed password stored in the database
 ) {
+  // Use bcrypt's compare method to check if the entered password, when hashed,
+  // matches the hashed password stored in the database
+  // This method returns a Promise that resolves to a boolean: true if the passwords match, false otherwise
+  // The await keyword is used to pause the execution of the function until the Promise is resolved
   return await bcrypt.compare(candidatePassword, userPassword);
+};
+
+// Adding a method to the userSchema for check if password changed
+userSchema.methods.changedPasswordAfter = function (JWTTimestapmt) {
+  if (this.passwordChangedAt) {
+    const changedTimeStampt = parseInt(
+      this.passwordChangedAt.getTime() / 1000,
+      10
+    );
+
+    console.log(changedTimeStampt, JWTTimestapmt);
+    return JWTTimestapmt < changedTimeStampt; // 100
+  }
+  // False means NOT changed
+  return false;
 };
 
 // Creating the User model from the userSchema
