@@ -22,6 +22,14 @@ const userSchema = new mongoose.Schema({
   photo: {
     type: String, // The data type of the photo field is String
   },
+  role: {
+    type: String,
+    enum: {
+      values: [`user`, `guide`, `lead-guide`, `admin`],
+      message: `Difficulty is either: user, guide, lead-guide, admin, {VALUE} is not supported`,
+      default: `user`,
+    },
+  },
   password: {
     type: String, // The data type of the password field is String
     required: [true, `Please enter a password`], // The password field is required
