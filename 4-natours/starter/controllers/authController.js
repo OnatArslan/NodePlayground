@@ -2,7 +2,7 @@ const { promisify } = require('util');
 const jwt = require('jsonwebtoken');
 const User = require('./../models/userModel');
 const bcrypt = require('bcryptjs');
-
+const sendEmail = require(`./../utils/email`);
 // Exporting an asynchronous function named 'signup'
 exports.signup = async (req, res, next) => {
   try {
@@ -163,8 +163,34 @@ exports.forgotPassword = async (req, res, next) => {
   await user.save({
     validateBeforeSave: false,
   });
-  next();
-  // 3) Send it back via email
+
+  // 3) Send it via email
+  const resetURL = `http://${req.get(
+    `host`
+  )}/api/v1/users/resetPassword/${resetToken}`;
+  const message = `Forgot your password? Submit a PATCH request with your new password and passwordConfirm to : ${resetURL}\n
+  If you didn't forget your password, please ignore this email`;
+
+  try {
+    await sendEmail({
+      email: user.email,
+      subject: `Your password reset token (valid for 10 min)`,
+      message: message,
+    });
+    res.status(200).json({
+      status: `success`,
+      message: `Token sent to email`,
+    });
+  } catch (err) {
+    console.log(err);
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+    await user.save({ validateBeforeSave: false });
+    return res.status(500).json({
+      status: `fail`,
+      message: `Something went wrong, we cannot send you password reset mail`,
+    });
+  }
 };
 
 exports.resetPassword = async (req, res, next) => {};
