@@ -2,6 +2,7 @@
 const mongoose = require('mongoose');
 const validator = require('validator');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 
 // Defining the schema for the User model
 const userSchema = new mongoose.Schema({
@@ -48,6 +49,12 @@ const userSchema = new mongoose.Schema({
     },
   },
   passwordChangedAt: {
+    type: Date,
+  },
+  passwordResetToken: {
+    type: String,
+  },
+  passwordResetExpires: {
     type: Date,
   },
 });
@@ -102,6 +109,20 @@ userSchema.methods.changedPasswordAfter = function (JWTTimestamp) {
   // If the passwordChangedAt field does not exist, the password was not changed
   // In this case, return false
   return false;
+};
+
+// Create generate random string token for password reset funcionalty
+userSchema.methods.createPasswordResetToken = function () {
+  const resetToken = crypto.randomBytes(32).toString(`hex`);
+  this.passwordResetToken = crypto
+    .createHash(`sha256`)
+    .update(resetToken)
+    .digest(`hex`);
+
+  console.log({ resetToken }, this.passwordResetToken);
+  this.passwordResetExpires = Date.now() + 10 * 60 * 1000;
+
+  return resetToken;
 };
 
 // Creating the User model from the userSchema

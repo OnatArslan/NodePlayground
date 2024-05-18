@@ -13,6 +13,7 @@ exports.signup = async (req, res, next) => {
       password: req.body.password,
       passwordConfirm: req.body.passwordConfirm,
       passwordChangedAt: req.body.passwordChangedAt,
+      role: req.body.role,
     });
 
     // Generating a JSON Web Token (JWT) for the new user. The token payload contains the user's ID.
@@ -135,3 +136,35 @@ exports.protect = async (req, res, next) => {
   // Call the 'next' function to move to the next middleware or route handler
   next();
 };
+
+exports.restrictTo = (...roles) => {
+  return (req, res, next) => {
+    if (!roles.includes(req.user.role)) {
+      return res.status(401).json({
+        status: `fail`,
+        message: `You must be an ${roles} to perform this action`,
+      });
+    }
+    next();
+  };
+};
+
+exports.forgotPassword = async (req, res, next) => {
+  // 1) Get user based on POSTed email
+  const user = await User.findOne({ email: req.body.email });
+  if (!user) {
+    return res.status(401).json({
+      status: `fail`,
+      message: `Your email is wrong`,
+    });
+  }
+  // 2) Generate random token
+  const resetToken = user.createPasswordResetToken();
+  await user.save({
+    validateBeforeSave: false,
+  });
+  next();
+  // 3) Send it back via email
+};
+
+exports.resetPassword = async (req, res, next) => {};

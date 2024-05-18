@@ -16,6 +16,10 @@ const router = express.Router();
 // These are user routes for signup signin
 router.post(`/signup`, authController.signup);
 router.post(`/login`, authController.login);
+// Reset password routes
+router.post(`/forgotPassword`, authController.forgotPassword);
+router.post(`/resetPassword`, authController.resetPassword);
+
 // These are admin routes
 router
   .route(`/`)
