@@ -67,7 +67,7 @@ userSchema.pre(`save`, async function (next) {
 });
 
 // INSTANCE METHOD
-// Adding a method to the userSchema methods object
+// Adding a method to the userSchema methods object for check password
 userSchema.methods.correctPassword = async function (
   candidatePassword, // The password entered by the user
   userPassword // The hashed password stored in the database
@@ -79,18 +79,28 @@ userSchema.methods.correctPassword = async function (
   return await bcrypt.compare(candidatePassword, userPassword);
 };
 
-// Adding a method to the userSchema for check if password changed
-userSchema.methods.changedPasswordAfter = function (JWTTimestapmt) {
+// Adding a method to the userSchema to check if the password was changed after a given timestamp
+userSchema.methods.changedPasswordAfter = function (JWTTimestamp) {
+  // Check if the passwordChangedAt field exists
   if (this.passwordChangedAt) {
-    const changedTimeStampt = parseInt(
+    // Convert the date in passwordChangedAt to a Unix timestamp (seconds since 1970-01-01 00:00:00 UTC)
+    // The getTime method returns the time in milliseconds, so it is divided by 1000 to convert it to seconds
+    // The result is then rounded down to the nearest integer using parseInt
+    const changedTimestamp = parseInt(
       this.passwordChangedAt.getTime() / 1000,
       10
     );
 
-    console.log(changedTimeStampt, JWTTimestapmt);
-    return JWTTimestapmt < changedTimeStampt; // 100
+    // Log the changed timestamp and the JWT timestamp for debugging purposes
+    console.log(changedTimestamp, JWTTimestamp);
+
+    // If the JWT timestamp is less than the changed timestamp, the password was changed after the token was issued
+    // In this case, return true
+    return JWTTimestamp < changedTimestamp;
   }
-  // False means NOT changed
+
+  // If the passwordChangedAt field does not exist, the password was not changed
+  // In this case, return false
   return false;
 };
 

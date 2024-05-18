@@ -85,41 +85,53 @@ exports.login = async (req, res, next) => {
   }
 };
 
+// Exporting an asynchronous function named 'protect'
 exports.protect = async (req, res, next) => {
-  // 1) Getting token and check of it exist
+  // 1) Extracting the token from the 'Authorization' header
   let token;
+  // Checking if the 'Authorization' header exists and starts with 'Bearer'
   if (
     req.headers.authorization &&
     req.headers.authorization.startsWith(`Bearer`)
   ) {
+    // If it does, split the header value by space (' ') and take the second part as the token
     token = req.headers.authorization.split(` `)[1];
   }
+  // If no token is found, return a response with a status code of 401 (Unauthorized) and an error message
   if (!token) {
     return res.status(401).json({
       status: `fail`,
       message: `You are not logged in! Please log in to get access`,
     });
   }
-  // 2) Verification token
+  // 2) Verifying the token
+  // The 'promisify' function is used to turn the callback-based 'jwt.verify' function into a promise-based one
   const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
 
-  // 3) Check if user still exist
+  // 3) Checking if the user still exists
+  // The 'findById' method is used to find a user by their ID
   const freshUser = await User.findById(decoded.id);
+  // If no user is found, return a response with a status code of 401 (Unauthorized) and an error message
   if (!freshUser) {
     return res.status(401).json({
       status: `fail`,
       message: `User has been deleted, Please register and try again`,
     });
   }
-  // 4) Check if user changed password after token was issued
+
+  // 4) Checking if the user changed their password after the token was issued
+  // The 'changedPasswordAfter' method is used to check if the password was changed after the token was issued
   if (freshUser.changedPasswordAfter(decoded.iat)) {
+    // If it was, return a response with a status code of 401 (Unauthorized) and an error message
     return res.status(401).json({
       status: `fail`,
-      message: `User receantly changed password! Please log in again`,
+      message: `User recently changed password! Please log in again`,
     });
   }
 
-  // GRANT ACCESS TO PROTECTED ROUTE
+  // If all checks pass, grant access to the protected route
+  // The user's details are added to the request object, so they can be accessed in the next middleware or route handler
   req.user = freshUser;
+  // Call the 'next' function to move to the next middleware or route handler
   next();
 };
