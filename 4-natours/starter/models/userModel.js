@@ -73,6 +73,14 @@ userSchema.pre(`save`, async function (next) {
   }
 });
 
+userSchema.pre(`save`, function (next) {
+  if (!this.isModified(`password`) || this.isNew()) {
+    return next();
+  }
+  this.passwordChangedAt = Date.now() - 1000;
+  next();
+});
+
 // INSTANCE METHOD
 // Adding a method to the userSchema methods object for check password
 userSchema.methods.correctPassword = async function (

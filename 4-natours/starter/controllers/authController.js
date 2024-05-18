@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const User = require('./../models/userModel');
 const bcrypt = require('bcryptjs');
 const sendEmail = require(`./../utils/email`);
+const crypto = require('crypto');
 // Exporting an asynchronous function named 'signup'
 exports.signup = async (req, res, next) => {
   try {
@@ -149,43 +150,59 @@ exports.restrictTo = (...roles) => {
   };
 };
 
+// This is an exported asynchronous function named 'forgotPassword'
 exports.forgotPassword = async (req, res, next) => {
-  // 1) Get user based on POSTed email
+  // The function starts by trying to find a user in the database with the email provided in the request body
   const user = await User.findOne({ email: req.body.email });
+
+  // If no user is found with the provided email, it sends a response with a status code of 401 (Unauthorized) and an error message
   if (!user) {
     return res.status(401).json({
       status: `fail`,
       message: `Your email is wrong`,
     });
   }
-  // 2) Generate random token
+
+  // If a user is found, it generates a password reset token using a method on the user model
   const resetToken = user.createPasswordResetToken();
+
+  // The user document is then saved to the database. The 'validateBeforeSave' option is set to false to bypass any validation checks
   await user.save({
     validateBeforeSave: false,
   });
 
-  // 3) Send it via email
+  // A reset URL is created using the host from the request and the generated reset token
   const resetURL = `http://${req.get(
     `host`
   )}/api/v1/users/resetPassword/${resetToken}`;
+
+  // A message is created instructing the user to send a PATCH request to the reset URL with their new password and password confirmation
   const message = `Forgot your password? Submit a PATCH request with your new password and passwordConfirm to : ${resetURL}\n
   If you didn't forget your password, please ignore this email`;
 
+  // A try-catch block is used to handle any errors that might occur when sending the email
   try {
+    // The 'sendEmail' function is called with an object containing the user's email, a subject, and the message
     await sendEmail({
       email: user.email,
       subject: `Your password reset token (valid for 10 min)`,
       message: message,
     });
+
+    // If the email is sent successfully, a response is sent with a status code of 200 (OK) and a success message
     res.status(200).json({
       status: `success`,
       message: `Token sent to email`,
     });
   } catch (err) {
-    console.log(err);
+    // The password reset token and expiration fields on the user document are set to undefined
     user.passwordResetToken = undefined;
     user.passwordResetExpires = undefined;
+
+    // The user document is saved again to the database
     await user.save({ validateBeforeSave: false });
+
+    // A response is sent with a status code of 500 (Internal Server Error) and an error message
     return res.status(500).json({
       status: `fail`,
       message: `Something went wrong, we cannot send you password reset mail`,
@@ -193,4 +210,53 @@ exports.forgotPassword = async (req, res, next) => {
   }
 };
 
-exports.resetPassword = async (req, res, next) => {};
+// This url is like `/resetPassword/:token` paramatirez url
+exports.resetPassword = async (req, res, next) => {
+  try {
+    // 1) get user based on the token
+    const hashedToken = crypto
+      .createHash(`sha256`)
+      .update(req.params.token)
+      .digest(`hex`);
+
+    const user = await User.findOne({
+      passwordResetToken: hashedToken,
+      passwordResetExpires: { $gt: Date.now() },
+    });
+
+    // 2) If token has not expired and there is a user, set the new password
+    if (!user) {
+      return res.status(400).json({
+        status: `fail`,
+        message: `Token is invalid or has expired`,
+      });
+    }
+    user.password = req.body.password;
+    user.passwordConfirm = req.body.passwordConfirm;
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+    await user.save({
+      validateBeforeSave: true,
+    });
+
+    // 3) update changedPasswordAt property for the user
+
+    // 4) Log the user in, send JWT
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: process.env.JWT_EXPIRES_IN,
+    });
+    res.status(200).json({
+      status: `success`,
+      message: `Your password succesfuly changed, Logging in...`,
+      data: {
+        token: token,
+      },
+    });
+  } catch (err) {
+    console.log(err);
+    res.status(400).json({
+      status: `fail`,
+      message: err,
+    });
+  }
+};
