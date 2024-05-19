@@ -4,6 +4,8 @@ const User = require('./../models/userModel');
 const bcrypt = require('bcryptjs');
 const sendEmail = require(`./../utils/email`);
 const crypto = require('crypto');
+// const { options } = require('../routes/userRoutes');
+
 // Exporting an asynchronous function named 'signup'
 exports.signup = async (req, res, next) => {
   try {
@@ -210,53 +212,93 @@ exports.forgotPassword = async (req, res, next) => {
   }
 };
 
-// This url is like `/resetPassword/:token` paramatirez url
+// This function is exported and is responsible for resetting a user's password
 exports.resetPassword = async (req, res, next) => {
   try {
-    // 1) get user based on the token
+    // The function starts by hashing the token provided in the request parameters using the SHA256 algorithm
     const hashedToken = crypto
       .createHash(`sha256`)
       .update(req.params.token)
       .digest(`hex`);
 
+    // It then tries to find a user in the database with a matching password reset token and a password reset expiration date that is in the future
     const user = await User.findOne({
       passwordResetToken: hashedToken,
       passwordResetExpires: { $gt: Date.now() },
     });
 
-    // 2) If token has not expired and there is a user, set the new password
+    // If no user is found, it sends a response with a status code of 400 (Bad Request) and an error message
     if (!user) {
       return res.status(400).json({
         status: `fail`,
         message: `Token is invalid or has expired`,
       });
     }
+
+    // If a user is found, it sets the new password and password confirmation on the user document and clears the password reset token and expiration date
     user.password = req.body.password;
     user.passwordConfirm = req.body.passwordConfirm;
     user.passwordResetToken = undefined;
     user.passwordResetExpires = undefined;
+
+    // The user document is then saved to the database. The 'validateBeforeSave' option is set to true to ensure that the new password is validated before being saved
     await user.save({
       validateBeforeSave: true,
     });
 
-    // 3) update changedPasswordAt property for the user
-
-    // 4) Log the user in, send JWT
+    // A JWT token is created for the user using their ID and the secret key from the environment variables. The token's expiration time is also set from the environment variables
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
       expiresIn: process.env.JWT_EXPIRES_IN,
     });
+
+    // A response is sent with a status code of 200 (OK), a success message, and the JWT token
     res.status(200).json({
       status: `success`,
-      message: `Your password succesfuly changed, Logging in...`,
+      message: `Your password successfully changed, Logging in...`,
       data: {
         token: token,
       },
     });
   } catch (err) {
+    // If an error occurs at any point in the function, it is logged to the console and a response is sent with a status code of 400 (Bad Request) and the error message
     console.log(err);
     res.status(400).json({
       status: `fail`,
       message: err,
+    });
+  }
+};
+
+exports.updatePassword = async (req, res, next) => {
+  try {
+    const user = await User.findOne({ _id: req.user._id }).select(`+password`);
+    if (
+      !(await user.correctPassword(req.body.passwordCurrent, user.password))
+    ) {
+      return res.status(400).json({
+        status: `fail`,
+      });
+    }
+    // Change password
+    user.password = req.body.newPassword;
+    user.passwordConfirm = req.body.newPassword;
+    await user.save();
+
+    // Log in user
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: process.env.JWT_EXPIRES_IN,
+    });
+
+    res.status(200).json({
+      status: `fail`,
+      message: `Your password changed succesfuly`,
+      token: token,
+    });
+  } catch (err) {
+    console.log(err);
+    res.status(404).json({
+      status: `fail`,
+      message: `Cant done`,
     });
   }
 };
