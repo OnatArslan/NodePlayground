@@ -269,7 +269,7 @@ exports.resetPassword = async (req, res, next) => {
   }
 };
 
-exports.updatePassword = async (req, res, next) => {
+exports.updatePassword = async (req, res) => {
   try {
     const user = await User.findOne({ _id: req.user._id }).select(`+password`);
     if (
